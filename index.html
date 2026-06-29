@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Smart Display">
+  <title>Smart Display</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #ffffff;
+      --accent-dim: rgba(255,255,255,0.55);
+      --accent-faint: rgba(255,255,255,0.18);
+      --today-bg: rgba(255,255,255,0.92);
+      --today-fg: #111;
+      --text: #fff;
+      --overlay-gradient: linear-gradient(
+        to bottom,
+        transparent 30%,
+        rgba(0,0,0,0.25) 55%,
+        rgba(0,0,0,0.72) 80%,
+        rgba(0,0,0,0.88) 100%
+      );
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text);
+      cursor: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Photo layers ── */
+    #photo-a, #photo-b {
+      position: fixed; inset: -5%;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: opacity 2.5s ease-in-out;
+      will-change: transform, opacity;
+    }
+    #photo-a { z-index: 1; opacity: 1; }
+    #photo-b { z-index: 2; opacity: 0; }
+
+    /* Ken Burns variants */
+    @keyframes kb1 { from { transform: scale(1.12) translate(2%, 2%); }  to { transform: scale(1)    translate(0, 0);    } }
+    @keyframes kb2 { from { transform: scale(1)    translate(0, 0);    }  to { transform: scale(1.1)  translate(-2%, -1%); } }
+    @keyframes kb3 { from { transform: scale(1.1)  translate(-2%, 1%); }  to { transform: scale(1)    translate(2%, -1%); } }
+    @keyframes kb4 { from { transform: scale(1)    translate(2%, -2%); }  to { transform: scale(1.1)  translate(-1%, 1%); } }
+    @keyframes kb5 { from { transform: scale(1.08) translate(0, -2%);  }  to { transform: scale(1)    translate(0, 2%);   } }
+    @keyframes kb6 { from { transform: scale(1)    translate(-1%, 0);  }  to { transform: scale(1.1)  translate(1%, 2%);  } }
+
+    .kb1 { animation: kb1 var(--kb-dur) ease-in-out both; }
+    .kb2 { animation: kb2 var(--kb-dur) ease-in-out both; }
+    .kb3 { animation: kb3 var(--kb-dur) ease-in-out both; }
+    .kb4 { animation: kb4 var(--kb-dur) ease-in-out both; }
+    .kb5 { animation: kb5 var(--kb-dur) ease-in-out both; }
+    .kb6 { animation: kb6 var(--kb-dur) ease-in-out both; }
+
+    /* ── Overlay ── */
+    #overlay {
+      position: fixed; inset: 0;
+      z-index: 10;
+      background: var(--overlay-gradient);
+      pointer-events: none;
+    }
+
+    /* ── UI shell ── */
+    #ui {
+      position: fixed; inset: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0 36px 40px;
+    }
+
+    #bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+    }
+
+    /* ── Clock ── */
+    #clock-block { flex: 1; min-width: 0; }
+
+    #time {
+      font-size: clamp(72px, 14vw, 120px);
+      font-weight: 200;
+      letter-spacing: -2px;
+      line-height: 1;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.6);
+    }
+
+    #date-line {
+      margin-top: 6px;
+      font-size: clamp(16px, 3vw, 22px);
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      color: var(--accent-dim);
+      text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+    }
+
+    /* ── Calendar ── */
+    #calendar-block {
+      flex-shrink: 0;
+      width: clamp(180px, 26vw, 240px);
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(18px) saturate(180%);
+      -webkit-backdrop-filter: blur(18px) saturate(180%);
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    #cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    #cal-month {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-dim);
+    }
+
+    #cal-year {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--accent-faint);
+    }
+
+    #cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      text-align: center;
+    }
+
+    .cal-dow {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--accent-faint);
+      padding-bottom: 4px;
+    }
+
+    .cal-day {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--accent-dim);
+      padding: 3px 0;
+      border-radius: 50%;
+      line-height: 22px;
+      height: 22px;
+    }
+
+    .cal-day.empty { color: transparent; }
+    .cal-day.other-month { color: var(--accent-faint); }
+
+    .cal-day.today {
+      background: var(--today-bg);
+      color: var(--today-fg);
+      font-weight: 700;
+      border-radius: 50%;
+    }
+
+    .cal-day.weekend { color: rgba(255,255,255,0.4); }
+    .cal-day.today.weekend { color: var(--today-fg); }
+
+    /* ── Setup screen (shown when no photos) ── */
+    #setup-screen {
+      position: fixed; inset: 0;
+      z-index: 100;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      text-align: center;
+      gap: 20px;
+    }
+
+    #setup-screen h1 { font-size: 28px; font-weight: 300; color: #fff; }
+    #setup-screen p  { font-size: 15px; color: rgba(255,255,255,0.55); line-height: 1.7; max-width: 520px; }
+    #setup-screen code {
+      display: inline-block;
+      background: rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-family: monospace;
+      font-size: 13px;
+      color: #7df;
+    }
+
+    /* ── Night dim ── */
+    #night-veil {
+      position: fixed; inset: 0;
+      z-index: 90;
+      background: rgba(0,0,0,0);
+      transition: background 90s linear;
+      pointer-events: none;
+    }
+    #night-veil.dimmed { background: rgba(0,0,0,0.65); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     CONFIGURATION — edit this section
+     ═══════════════════════════════════════════════════ -->
+<script>
+const CONFIG = {
+
+  // ── Photos ──────────────────────────────────────────────────────────────
+  // Add URLs of your photos here. Any direct image URL works.
+  //
+  // Easy ways to get photo URLs (free):
+  //
+  // OPTION A — Dropbox
+  //   1. Upload photos to Dropbox
+  //   2. Click ··· → Share → Copy link  (looks like https://www.dropbox.com/s/xxx/photo.jpg?dl=0)
+  //   3. Change ?dl=0 → ?raw=1 at the end
+  //
+  // OPTION B — GitHub (recommended if you already use GitHub)
+  //   1. Create a public repo (e.g. "my-photos")
+  //   2. Upload photos there
+  //   3. Open the file on GitHub → click "Raw" → copy that URL
+  //      (looks like https://raw.githubusercontent.com/yourname/my-photos/main/photo.jpg)
+  //
+  // OPTION C — Google Drive
+  //   1. Upload photo → Share → Anyone with link
+  //   2. Copy the file ID from the URL (the long string between /d/ and /view)
+  //   3. Use: https://drive.google.com/uc?export=view&id=FILE_ID_HERE
+  //
+  photos: [
+    // Replace these sample photos with your own URLs.
+    // See the comments above for how to get free photo URLs from Dropbox, GitHub, or Google Drive.
+    "https://picsum.photos/seed/forest/1600/1200",
+    "https://picsum.photos/seed/mountain/1600/1200",
+    "https://picsum.photos/seed/ocean/1600/1200",
+    "https://picsum.photos/seed/valley/1600/1200",
+    "https://picsum.photos/seed/sunrise/1600/1200",
+    "https://picsum.photos/seed/lake/1600/1200",
+  ],
+
+  // ── Timing ──────────────────────────────────────────────────────────────
+  photoInterval:  25,    // seconds each photo is shown
+  kenburnsDuration: 28,  // seconds for the Ken Burns pan (keep >= photoInterval)
+
+  // ── Clock ───────────────────────────────────────────────────────────────
+  use12Hour: true,       // true = 12-hour clock, false = 24-hour
+  showSeconds: false,    // true to show seconds in the time
+
+  // ── Night dimming ───────────────────────────────────────────────────────
+  nightDim: true,        // dim screen during night hours
+  nightStart: 22,        // 24-hour hour to start dimming (22 = 10 PM)
+  nightEnd:   7,         // 24-hour hour to stop dimming  ( 7 =  7 AM)
+};
+</script>
+<!-- ════════════════ end configuration ════════════════ -->
+
+
+<!-- Photo layers -->
+<div id="photo-a"></div>
+<div id="photo-b"></div>
+
+<!-- Gradient overlay -->
+<div id="overlay"></div>
+
+<!-- Night veil -->
+<div id="night-veil"></div>
+
+<!-- UI -->
+<div id="ui">
+  <div id="bottom-row">
+    <div id="clock-block">
+      <div id="time">00:00</div>
+      <div id="date-line">Monday, January 1</div>
+    </div>
+    <div id="calendar-block">
+      <div id="cal-header">
+        <span id="cal-month">January</span>
+        <span id="cal-year">2024</span>
+      </div>
+      <div id="cal-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Setup helper (shown when no photos configured) -->
+<div id="setup-screen" style="display:none">
+  <h1>Smart Display</h1>
+  <p>Open <code>index.html</code> in a text editor and scroll to the <code>CONFIG</code> section near the top. Add your photo URLs to the <code>photos: [ ]</code> array.</p>
+  <p>The clock and calendar are already working — add at least one photo URL and refresh to start the slideshow.</p>
+  <p style="color:rgba(255,255,255,0.3); font-size:13px;">See the comments inside the file for easy free ways to host photos (Dropbox, GitHub, Google Drive).</p>
+</div>
+
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+const KB_CLASSES = ['kb1','kb2','kb3','kb4','kb5','kb6'];
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAYS_SHORT = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const DAYS_LONG  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function randInt(n) { return Math.floor(Math.random() * n); }
+
+// ── Clock & date ─────────────────────────────────────────────────────────
+
+function formatTime(d) {
+  let h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+  if (CONFIG.use12Hour) { h = h % 12 || 12; }
+  const hh = String(h).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return CONFIG.showSeconds ? `${hh}:${mm}:${ss}` : `${hh}:${mm}`;
+}
+
+function formatDate(d) {
+  return `${DAYS_LONG[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+function updateClock() {
+  const now = new Date();
+  $('time').textContent    = formatTime(now);
+  $('date-line').textContent = formatDate(now);
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────
+
+function buildCalendar() {
+  const now     = new Date();
+  const year    = now.getFullYear();
+  const month   = now.getMonth();
+  const today   = now.getDate();
+
+  $('cal-month').textContent = MONTHS[month].toUpperCase();
+  $('cal-year').textContent  = year;
+
+  const firstDow     = new Date(year, month, 1).getDay();  // 0=Sun
+  const daysInMonth  = new Date(year, month + 1, 0).getDate();
+
+  const grid = $('cal-grid');
+  grid.innerHTML = '';
+
+  // Day-of-week headers
+  DAYS_SHORT.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  // Empty cells before 1st
+  for (let i = 0; i < firstDow; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  // Day cells
+  for (let day = 1; day <= daysInMonth; day++) {
+    const el  = document.createElement('div');
+    const dow = (firstDow + day - 1) % 7;
+    let cls = 'cal-day';
+    if (day === today)              cls += ' today';
+    if (dow === 0 || dow === 6)     cls += ' weekend';
+    el.className = cls;
+    el.textContent = day;
+    grid.appendChild(el);
+  }
+}
+
+// ── Slideshow ────────────────────────────────────────────────────────────
+
+const photos  = CONFIG.photos.filter(Boolean);
+let layerA    = $('photo-a');
+let layerB    = $('photo-b');
+let activeLayer   = layerA;
+let inactiveLayer = layerB;
+let photoIndex    = 0;
+let transitioning = false;
+
+function applyKB(el) {
+  KB_CLASSES.forEach(c => el.classList.remove(c));
+  el.style.setProperty('--kb-dur', CONFIG.kenburnsDuration + 's');
+  // Force reflow so animation restarts
+  void el.offsetWidth;
+  const kb = KB_CLASSES[randInt(KB_CLASSES.length)];
+  el.classList.add(kb);
+}
+
+function setPhoto(el, url) {
+  el.style.backgroundImage = `url(${JSON.stringify(url)})`;
+}
+
+function showNext() {
+  if (transitioning || photos.length === 0) return;
+  transitioning = true;
+
+  photoIndex = (photoIndex + 1) % photos.length;
+  setPhoto(inactiveLayer, photos[photoIndex]);
+  applyKB(inactiveLayer);
+
+  // Small delay so browser can decode the image before fade
+  setTimeout(() => {
+    inactiveLayer.style.opacity = '1';
+    activeLayer.style.opacity   = '0';
+
+    // Swap roles after fade (2.5s)
+    setTimeout(() => {
+      [activeLayer, inactiveLayer] = [inactiveLayer, activeLayer];
+      transitioning = false;
+    }, 2600);
+  }, 200);
+}
+
+function initSlideshow() {
+  if (photos.length === 0) {
+    $('setup-screen').style.display = 'flex';
+    return;
+  }
+
+  // Set up layer z-indices so B is always "in front" during fades
+  layerA.style.zIndex = '1';
+  layerB.style.zIndex = '2';
+
+  // Load first photo into A immediately
+  setPhoto(layerA, photos[0]);
+  applyKB(layerA);
+  layerA.style.opacity = '1';
+  layerB.style.opacity = '0';
+  activeLayer   = layerA;
+  inactiveLayer = layerB;
+
+  // Preload second photo into B silently
+  if (photos.length > 1) {
+    setPhoto(layerB, photos[1]);
+  }
+
+  setInterval(showNext, CONFIG.photoInterval * 1000);
+}
+
+// ── Night dimming ─────────────────────────────────────────────────────────
+
+function updateNightDim() {
+  if (!CONFIG.nightDim) return;
+  const h    = new Date().getHours();
+  const dark = h >= CONFIG.nightStart || h < CONFIG.nightEnd;
+  const veil = $('night-veil');
+  if (dark)  veil.classList.add('dimmed');
+  else       veil.classList.remove('dimmed');
+}
+
+// ── Midnight calendar refresh ─────────────────────────────────────────────
+
+function scheduleMidnightRefresh() {
+  const now  = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const ms   = next - now;
+  setTimeout(() => {
+    buildCalendar();
+    scheduleMidnightRefresh();
+  }, ms);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+
+updateClock();
+setInterval(updateClock, 1000);
+
+buildCalendar();
+scheduleMidnightRefresh();
+
+updateNightDim();
+setInterval(updateNightDim, 60 * 1000);
+
+initSlideshow();
+
+// Keep screen awake via Wake Lock API (supported in iOS 16.4+ Safari)
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      await navigator.wakeLock.request('screen');
+    }
+  } catch (_) {}
+}
+requestWakeLock();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
+});
+
+// Prevent accidental navigation
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+</script>
+</body>
+</html>
