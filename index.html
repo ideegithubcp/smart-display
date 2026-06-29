@@ -267,25 +267,15 @@ const CONFIG = {
 
   // ── PHOTOS ───────────────────────────────────────────────────────────────
   //
-  // EASIEST: store photos right here in your GitHub repo.
-  //   1. On github.com, open your smart-display repo
-  //   2. Click "Add file" → "Upload files" → upload your photos into a folder called "photos"
-  //   3. List them below like:
-  //        "photos/IMG_001.jpg",
-  //        "photos/IMG_002.jpg",
-  //   (relative URLs work because the page is served from the same repo)
+  // Set your GitHub repo and folder — photos are picked up automatically.
+  // Just upload images into that folder on GitHub; no need to list them here.
   //
-  // OR use any direct image URL (Dropbox ?raw=1, Google Drive uc?export=view&id=...)
-  //
-  photos: [
-    // ← put your photo filenames or URLs here
-    "https://picsum.photos/seed/forest/1600/1200",
-    "https://picsum.photos/seed/mountain/1600/1200",
-    "https://picsum.photos/seed/ocean/1600/1200",
-    "https://picsum.photos/seed/valley/1600/1200",
-    "https://picsum.photos/seed/sunrise/1600/1200",
-    "https://picsum.photos/seed/lake/1600/1200",
-  ],
+  githubRepo:   "ideegithubcp/smart-display",  // "username/repo-name"
+  photosFolder: "photos",                       // folder inside the repo
+
+  // Optional: add extra URLs here (mixed with GitHub photos, or used as
+  // fallback if the repo fetch fails).
+  photos: [],
 
   // ── CALENDAR / SCHEDULE ──────────────────────────────────────────────────
   //
@@ -684,11 +674,20 @@ async function fetchICS() {
 // Slideshow
 // ─────────────────────────────────────────────────────────────────────────────
 
-const photos  = CONFIG.photos.filter(Boolean);
-let layerA    = $('photo-a');
-let layerB    = $('photo-b');
-let activeL   = layerA, inactiveL = layerB;
-let photoIdx  = 0, transitioning = false;
+let photos = CONFIG.photos.filter(Boolean);
+let layerA = $('photo-a');
+let layerB = $('photo-b');
+let activeL = layerA, inactiveL = layerB;
+let photoIdx = 0, transitioning = false;
+
+// Fisher-Yates shuffle so photos cycle in random order each pass
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 function applyKB(el) {
   KB.forEach(c => el.classList.remove(c));
@@ -703,6 +702,8 @@ function showNext() {
   if (transitioning || photos.length === 0) return;
   transitioning = true;
   photoIdx = (photoIdx + 1) % photos.length;
+  // Reshuffle when we wrap around so the order varies each cycle
+  if (photoIdx === 0) shuffle(photos);
   setPhoto(inactiveL, photos[photoIdx]);
   applyKB(inactiveL);
   setTimeout(() => {
@@ -712,13 +713,42 @@ function showNext() {
   }, 200);
 }
 
-function initSlideshow() {
+function startSlideshow() {
   if (photos.length === 0) { $('setup-screen').style.display = 'flex'; return; }
+  shuffle(photos);
   setPhoto(layerA, photos[0]); applyKB(layerA);
   layerA.style.opacity = '1'; layerB.style.opacity = '0';
   activeL = layerA; inactiveL = layerB;
   if (photos.length > 1) setPhoto(layerB, photos[1]);
   setInterval(showNext, CONFIG.photoInterval * 1000);
+}
+
+const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|avif|heic)$/i;
+
+async function fetchGitHubPhotos() {
+  const repo   = (CONFIG.githubRepo   || '').trim();
+  const folder = (CONFIG.photosFolder || 'photos').trim();
+  if (!repo) return;
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${folder}`, {
+      headers: { Accept: 'application/vnd.github.v3+json' },
+    });
+    if (!res.ok) return;
+    const files = await res.json();
+    if (!Array.isArray(files)) return;
+
+    const urls = files
+      .filter(f => f.type === 'file' && IMAGE_EXTS.test(f.name))
+      .map(f => f.download_url);
+
+    if (urls.length > 0) photos = [...urls, ...photos]; // GitHub photos first, manual extras appended
+  } catch (_) {}
+}
+
+async function initSlideshow() {
+  await fetchGitHubPhotos();
+  startSlideshow();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -765,7 +795,7 @@ scheduleMidnightRefresh();
 updateNightDim();
 setInterval(updateNightDim, 60_000);
 
-initSlideshow();
+initSlideshow(); // async: fetches GitHub photos, then starts
 
 // Calendar: fetch now and on interval
 if (CONFIG.calendarICSUrl) {
