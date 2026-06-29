@@ -24,26 +24,30 @@
 
     /* ── Background photo ── */
     #photo-bg {
-      position: fixed; inset: -5%;
+      position: fixed;
+      top: -5%; right: -5%; bottom: -5%; left: -5%;
+      z-index: 0;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      transition: opacity 2s ease-in-out;
-      will-change: transform;
     }
     @keyframes kb { from { transform: scale(1.08) translate(1%,1%); } to { transform: scale(1) translate(-1%,-1%); } }
     #photo-bg.animate { animation: kb 40s ease-in-out infinite alternate; }
 
     /* ── Overlay ── */
     #overlay {
-      position: fixed; inset: 0; z-index: 5;
-      background: rgba(0,0,0,0.45);
+      position: fixed;
+      top: 0; right: 0; bottom: 0; left: 0;
+      z-index: 5;
+      background: rgba(0,0,0,0.38);
       pointer-events: none;
     }
 
     /* ── Night veil ── */
     #night-veil {
-      position: fixed; inset: 0; z-index: 8;
+      position: fixed;
+      top: 0; right: 0; bottom: 0; left: 0;
+      z-index: 8;
       background: rgba(0,0,0,0);
       transition: background 90s linear;
       pointer-events: none;
@@ -52,10 +56,13 @@
 
     /* ── Full UI ── */
     #ui {
-      position: fixed; inset: 0; z-index: 10;
+      position: fixed;
+      top: 0; right: 0; bottom: 0; left: 0;
+      z-index: 10;
       display: flex;
       flex-direction: column;
       padding: 18px 18px 14px;
+      height: 100%;
     }
 
     /* ── Month nav header ── */
@@ -114,8 +121,9 @@
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 3px;
-      flex: 1;
+      flex: 1 1 0;
       min-height: 0;
+      overflow: hidden;
     }
 
     /* ── Day cell ── */
@@ -272,9 +280,10 @@ const CONFIG = {
   // Google Calendar: calendar.google.com → Settings → [calendar] →
   //   "Secret address in iCal format" → copy URL
   //
-  // Add multiple calendars as separate entries in this array:
+  // Add one or more ICS calendar URLs here:
   calendarURLs: [
-    "https://p174-caldav.icloud.com/published/2/ODE0NjEwMDM3NTgxNDYxMPAkPSus1Y5N3q3NZbzfB9pYPflaVpFJPsNjuZXOhOMguh_AvXoQZp9Cf6pK_jZXnm58SdYmsgnKqDeAFscKfyw
+    // Paste your iCloud/Google/Outlook ICS URL between the quotes:
+    // "https://p62-caldav.icloud.com/published/2/YOUR_KEY",
   ],
 
   calendarRefresh: 15,      // minutes between calendar fetches
@@ -580,7 +589,11 @@ function expandRecurring(ev, winStart, winEnd) {
 }
 
 async function fetchCalendars() {
-  const urls = CONFIG.calendarURLs.filter(Boolean);
+  // Support both calendarURLs array and legacy calendarICSUrl string
+  const urls = [
+    ...(CONFIG.calendarURLs || []),
+    ...(CONFIG.calendarICSUrl ? [CONFIG.calendarICSUrl] : []),
+  ].filter(Boolean);
   if (!urls.length) return;
 
   const fetched = [];
@@ -716,7 +729,8 @@ setInterval(updateNightDim, 60_000);
 
 initPhotos();
 
-if (CONFIG.calendarURLs.filter(Boolean).length) {
+const hasCalendar = (CONFIG.calendarURLs || []).filter(Boolean).length || CONFIG.calendarICSUrl;
+if (hasCalendar) {
   fetchCalendars();
   setInterval(fetchCalendars, CONFIG.calendarRefresh * 60_000);
 }
