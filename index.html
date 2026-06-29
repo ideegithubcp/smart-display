@@ -7,25 +7,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Smart Display">
   <title>Smart Display</title>
-
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --accent-dim:   rgba(255,255,255,0.55);
-      --accent-faint: rgba(255,255,255,0.18);
-      --today-bg:     rgba(255,255,255,0.92);
-      --today-fg:     #111;
-      --panel-bg:     rgba(0,0,0,0.38);
-      --panel-border: rgba(255,255,255,0.12);
-      --overlay-gradient: linear-gradient(
-        to bottom,
-        transparent 25%,
-        rgba(0,0,0,0.2) 50%,
-        rgba(0,0,0,0.7) 78%,
-        rgba(0,0,0,0.9) 100%
-      );
-    }
 
     html, body {
       width: 100%; height: 100%;
@@ -39,771 +22,705 @@
       -webkit-user-select: none;
     }
 
-    /* ── Photo layers ── */
-    #photo-a, #photo-b {
+    /* ── Background photo ── */
+    #photo-bg {
       position: fixed; inset: -5%;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      transition: opacity 2.5s ease-in-out;
-      will-change: transform, opacity;
+      transition: opacity 2s ease-in-out;
+      will-change: transform;
     }
-    #photo-a { z-index: 1; opacity: 1; }
-    #photo-b { z-index: 2; opacity: 0; }
+    @keyframes kb { from { transform: scale(1.08) translate(1%,1%); } to { transform: scale(1) translate(-1%,-1%); } }
+    #photo-bg.animate { animation: kb 40s ease-in-out infinite alternate; }
 
-    /* Ken Burns variants */
-    @keyframes kb1 { from { transform: scale(1.12) translate( 2%,  2%); } to { transform: scale(1)    translate( 0,    0  ); } }
-    @keyframes kb2 { from { transform: scale(1)    translate( 0,    0 ); } to { transform: scale(1.1)  translate(-2%, -1%); } }
-    @keyframes kb3 { from { transform: scale(1.1)  translate(-2%,  1%); } to { transform: scale(1)    translate( 2%, -1%); } }
-    @keyframes kb4 { from { transform: scale(1)    translate( 2%, -2%); } to { transform: scale(1.1)  translate(-1%,  1%); } }
-    @keyframes kb5 { from { transform: scale(1.08) translate( 0,  -2%); } to { transform: scale(1)    translate( 0,   2%); } }
-    @keyframes kb6 { from { transform: scale(1)    translate(-1%,  0 ); } to { transform: scale(1.1)  translate( 1%,  2%); } }
-
-    .kb1 { animation: kb1 var(--kb-dur) ease-in-out both; }
-    .kb2 { animation: kb2 var(--kb-dur) ease-in-out both; }
-    .kb3 { animation: kb3 var(--kb-dur) ease-in-out both; }
-    .kb4 { animation: kb4 var(--kb-dur) ease-in-out both; }
-    .kb5 { animation: kb5 var(--kb-dur) ease-in-out both; }
-    .kb6 { animation: kb6 var(--kb-dur) ease-in-out both; }
-
-    /* ── Overlays ── */
+    /* ── Overlay ── */
     #overlay {
-      position: fixed; inset: 0; z-index: 10;
-      background: var(--overlay-gradient);
+      position: fixed; inset: 0; z-index: 5;
+      background: rgba(0,0,0,0.45);
       pointer-events: none;
     }
+
+    /* ── Night veil ── */
     #night-veil {
-      position: fixed; inset: 0; z-index: 90;
+      position: fixed; inset: 0; z-index: 8;
       background: rgba(0,0,0,0);
       transition: background 90s linear;
       pointer-events: none;
     }
-    #night-veil.dimmed { background: rgba(0,0,0,0.65); }
+    #night-veil.dimmed { background: rgba(0,0,0,0.6); }
 
-    /* ── UI shell ── */
+    /* ── Full UI ── */
     #ui {
-      position: fixed; inset: 0; z-index: 20;
+      position: fixed; inset: 0; z-index: 10;
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
-      padding: 0 32px 36px;
+      padding: 18px 18px 14px;
     }
 
-    #bottom-row {
+    /* ── Month nav header ── */
+    #month-nav {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: flex-end;
-      gap: 20px;
-    }
-
-    /* ── Clock block (left) ── */
-    #clock-block { flex: 1; min-width: 0; }
-
-    #time {
-      font-size: clamp(68px, 13vw, 116px);
-      font-weight: 200;
-      letter-spacing: -2px;
-      line-height: 1;
-      text-shadow: 0 2px 24px rgba(0,0,0,0.6);
-    }
-
-    #date-line {
-      margin-top: 5px;
-      font-size: clamp(15px, 2.8vw, 20px);
-      font-weight: 300;
-      letter-spacing: 0.05em;
-      color: var(--accent-dim);
-      text-shadow: 0 1px 8px rgba(0,0,0,0.5);
-    }
-
-    /* ── Right panel ── */
-    #right-panel {
       flex-shrink: 0;
-      width: clamp(190px, 28vw, 256px);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      margin-bottom: 10px;
     }
 
-    /* ── Mini month calendar ── */
-    #calendar-block {
-      background: var(--panel-bg);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      border-radius: 16px;
-      padding: 14px 14px 12px;
-      border: 1px solid var(--panel-border);
+    .nav-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: none; cursor: pointer; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; line-height: 1;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-btn:active { background: rgba(255,255,255,0.25); }
+
+    #month-title {
+      font-size: clamp(18px, 4vw, 28px);
+      font-weight: 200;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-align: center;
+      flex: 1;
+      text-shadow: 0 1px 12px rgba(0,0,0,0.5);
     }
 
-    #cal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 9px;
+    /* ── Day-of-week header ── */
+    #dow-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      flex-shrink: 0;
+      margin-bottom: 3px;
     }
-    #cal-month {
-      font-size: 12px; font-weight: 600;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--accent-dim);
+
+    .dow-label {
+      text-align: center;
+      font-size: clamp(8px, 1.4vw, 11px);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      padding-bottom: 4px;
     }
-    #cal-year {
-      font-size: 11px; font-weight: 400;
-      color: var(--accent-faint);
-    }
+    .dow-label.weekend { color: rgba(255,255,255,0.22); }
+
+    /* ── Calendar grid ── */
     #cal-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 1px;
-      text-align: center;
-    }
-    .cal-dow {
-      font-size: 8px; font-weight: 600;
-      letter-spacing: 0.06em;
-      color: var(--accent-faint);
-      padding-bottom: 4px;
-    }
-    .cal-day {
-      font-size: 11px; font-weight: 400;
-      color: var(--accent-dim);
-      line-height: 20px; height: 20px;
-      border-radius: 50%;
-    }
-    .cal-day.empty    { color: transparent; }
-    .cal-day.weekend  { color: rgba(255,255,255,0.38); }
-    .cal-day.today    { background: var(--today-bg); color: var(--today-fg); font-weight: 700; }
-    .cal-day.today.weekend { color: var(--today-fg); }
-    .cal-day.has-event::after {
-      content: '';
-      display: block;
-      width: 3px; height: 3px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.6);
-      margin: -4px auto 0;
-    }
-    .cal-day.today.has-event::after { background: rgba(0,0,0,0.4); }
-
-    /* ── Agenda block ── */
-    #agenda-block {
-      background: var(--panel-bg);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      border-radius: 16px;
-      padding: 12px 14px;
-      border: 1px solid var(--panel-border);
-      display: none; /* shown once calendar loads */
+      gap: 3px;
+      flex: 1;
+      min-height: 0;
     }
 
-    #agenda-label {
-      font-size: 9px; font-weight: 700;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--accent-faint);
-      margin-bottom: 8px;
-    }
-
-    .agenda-item {
+    /* ── Day cell ── */
+    .day-cell {
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 7px;
+      padding: 5px 5px 4px;
+      overflow: hidden;
       display: flex;
-      gap: 8px;
-      align-items: baseline;
-      padding: 4px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-direction: column;
+      gap: 2px;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .agenda-item:last-child { border-bottom: none; }
 
-    .agenda-dot {
-      width: 5px; height: 5px;
+    .day-cell.other-month {
+      background: rgba(0,0,0,0.12);
+      border-color: rgba(255,255,255,0.03);
+    }
+    .day-cell.other-month .day-num { color: rgba(255,255,255,0.2); }
+
+    .day-cell.today {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+    }
+
+    .day-cell.weekend:not(.other-month) .day-num { color: rgba(255,255,255,0.5); }
+
+    .day-num-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      line-height: 1;
+    }
+
+    .day-num {
+      font-size: clamp(10px, 2vw, 15px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.75);
+      line-height: 1;
+    }
+
+    .day-cell.today .day-num {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      width: clamp(18px, 3.2vw, 24px);
+      height: clamp(18px, 3.2vw, 24px);
+      background: #fff;
+      color: #111;
       border-radius: 50%;
-      background: rgba(255,255,255,0.5);
-      flex-shrink: 0;
-      margin-top: 5px;
+      font-weight: 700;
+      font-size: clamp(9px, 1.8vw, 13px);
     }
 
-    .agenda-time {
-      font-size: 10px; font-weight: 500;
-      color: var(--accent-faint);
+    /* ── Event pills ── */
+    .event-pill {
       flex-shrink: 0;
-      min-width: 44px;
-      letter-spacing: 0.03em;
-    }
-
-    .agenda-title {
-      font-size: 11px; font-weight: 400;
-      color: var(--accent-dim);
+      font-size: clamp(7px, 1.1vw, 9px);
+      line-height: 1.3;
+      color: rgba(255,255,255,0.82);
+      background: rgba(255,255,255,0.14);
+      border-radius: 3px;
+      padding: 1px 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .agenda-empty {
-      font-size: 11px;
-      color: var(--accent-faint);
-      font-style: italic;
-      padding: 2px 0;
+    .event-pill.timed::before {
+      content: attr(data-time) ' ';
+      color: rgba(255,255,255,0.45);
+      font-size: 0.85em;
     }
 
-    /* ── Setup overlay ── */
-    #setup-screen {
-      position: fixed; inset: 0; z-index: 100;
-      background: #111;
-      display: none;
+    .event-more {
+      font-size: clamp(6px, 1vw, 8px);
+      color: rgba(255,255,255,0.35);
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom bar ── */
+    #bottom-bar {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 10px;
+    }
+
+    #date-block {
+      display: flex;
       flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 40px; text-align: center; gap: 18px;
+      gap: 1px;
     }
-    #setup-screen h1 { font-size: 26px; font-weight: 300; }
-    #setup-screen p  { font-size: 14px; color: rgba(255,255,255,0.5); line-height: 1.75; max-width: 500px; }
-    #setup-screen code {
-      background: rgba(255,255,255,0.08); border-radius: 5px;
-      padding: 2px 7px; font-family: monospace; font-size: 12px; color: #7df;
+
+    #day-name {
+      font-size: clamp(10px, 2vw, 14px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
+
+    #date-full {
+      font-size: clamp(14px, 2.8vw, 20px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.75);
+    }
+
+    #time {
+      font-size: clamp(32px, 7vw, 56px);
+      font-weight: 200;
+      letter-spacing: -1px;
+      line-height: 1;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+    }
+
+    /* ── Swipe hint (fades after first use) ── */
+    #swipe-hint {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      z-index: 20;
+      font-size: 11px; color: rgba(255,255,255,0.3);
+      letter-spacing: 0.1em;
+      pointer-events: none;
+      transition: opacity 1s;
+    }
+    #swipe-hint.hidden { opacity: 0; }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     CONFIGURATION  ←  edit only this section
-     ═══════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════
+     CONFIGURATION — edit this section only
+     ═══════════════════════════════════════════════════════ -->
 <script>
 const CONFIG = {
 
   // ── PHOTOS ───────────────────────────────────────────────────────────────
-  //
-  // Set your GitHub repo and folder — photos are picked up automatically.
-  // Just upload images into that folder on GitHub; no need to list them here.
-  //
-  githubRepo:   "ideegithubcp/smart-display",  // "username/repo-name"
-  photosFolder: "photos",                       // folder inside the repo
+  // Upload photos to the "photos/" folder in your GitHub repo.
+  // They are picked up automatically — no need to list them here.
+  githubRepo:   "ideegithubcp/smart-display",
+  photosFolder: "photos",
+  photos: [],               // optional extra URLs or fallback
 
-  // Optional: add extra URLs here (mixed with GitHub photos, or used as
-  // fallback if the repo fetch fails).
-  photos: [],
+  photoInterval:    40,     // seconds before cycling to next photo
+  kenburnsDuration: 40,     // Ken Burns animation duration (seconds)
 
-  // ── CALENDAR / SCHEDULE ──────────────────────────────────────────────────
+  // ── CALENDAR ─────────────────────────────────────────────────────────────
+  // Apple iCloud: Calendar app → right-click calendar → Share Calendar →
+  //   tick "Public Calendar" → copy webcal:// link → change webcal:// to https://
   //
-  // Paste your calendar's secret ICS URL here. Works with Google Calendar,
-  // Apple iCloud Calendar, Outlook, Fastmail — anything that exports ICS.
+  // Google Calendar: calendar.google.com → Settings → [calendar] →
+  //   "Secret address in iCal format" → copy URL
   //
-  // Google Calendar:
-  //   calendar.google.com → Settings → [pick a calendar] →
-  //   scroll to "Secret address in iCal format" → copy that URL
-  //
-  // Apple iCloud:
-  //   Mac Calendar app → right-click calendar → Share Calendar →
-  //   tick "Public Calendar" → copy the webcal:// link →
-  //   replace  webcal://  with  https://
-  //
-  // Outlook / Microsoft 365:
-  //   calendar.microsoft.com → Settings → Shared calendars →
-  //   "Publish a calendar" → copy the ICS link
-  //
-  calendarICSUrl: "https://p174-caldav.icloud.com/published/2/ODE0NjEwMDM3NTgxNDYxMPAkPSus1Y5N3q3NZbzfB9pYPflaVpFJPsNjuZXOhOMguh_AvXoQZp9Cf6pK_jZXnm58SdYmsgnKqDeAFscKfyw",   // ← paste your ICS URL between the quotes
+  // Add multiple calendars as separate entries in this array:
+  calendarURLs: [
+    // "https://p62-caldav.icloud.com/published/2/YOUR_KEY",
+    // "https://calendar.google.com/calendar/ical/YOUR_KEY/basic.ics",
+  ],
 
-  // How many upcoming days to show in the agenda (including today)
-  agendaDays: 2,
-
-  // Max events to show in the agenda panel
-  agendaMaxItems: 5,
+  calendarRefresh: 15,      // minutes between calendar fetches
 
   // ── CLOCK ────────────────────────────────────────────────────────────────
-  use12Hour:   true,   // false = 24-hour
+  use12Hour:   true,
   showSeconds: false,
-
-  // ── TIMING ───────────────────────────────────────────────────────────────
-  photoInterval:    25,   // seconds per photo
-  kenburnsDuration: 28,   // seconds for Ken Burns pan (keep ≥ photoInterval)
-  calendarRefresh:  15,   // minutes between calendar fetches
 
   // ── NIGHT DIM ────────────────────────────────────────────────────────────
   nightDim:   true,
-  nightStart: 22,   // 10 PM
-  nightEnd:    7,   //  7 AM
+  nightStart: 22,
+  nightEnd:    7,
 };
 </script>
-<!-- ══════════════════ end configuration ══════════════════ -->
+<!-- ═══════════════════ end config ═══════════════════ -->
 
-
-<div id="photo-a"></div>
-<div id="photo-b"></div>
+<div id="photo-bg"></div>
 <div id="overlay"></div>
 <div id="night-veil"></div>
 
 <div id="ui">
-  <div id="bottom-row">
+  <div id="month-nav">
+    <button class="nav-btn" id="btn-prev" onclick="shiftMonth(-1)">‹</button>
+    <div id="month-title">June 2026</div>
+    <button class="nav-btn" id="btn-next" onclick="shiftMonth(1)">›</button>
+  </div>
 
-    <div id="clock-block">
-      <div id="time">00:00</div>
-      <div id="date-line">Monday, January 1</div>
+  <div id="dow-header">
+    <div class="dow-label weekend">Su</div>
+    <div class="dow-label">Mo</div>
+    <div class="dow-label">Tu</div>
+    <div class="dow-label">We</div>
+    <div class="dow-label">Th</div>
+    <div class="dow-label">Fr</div>
+    <div class="dow-label weekend">Sa</div>
+  </div>
+
+  <div id="cal-grid"></div>
+
+  <div id="bottom-bar">
+    <div id="date-block">
+      <div id="day-name">Monday</div>
+      <div id="date-full">June 29, 2026</div>
     </div>
-
-    <div id="right-panel">
-      <!-- Agenda (events from ICS) -->
-      <div id="agenda-block">
-        <div id="agenda-label">Today</div>
-        <div id="agenda-list"></div>
-      </div>
-
-      <!-- Mini month calendar -->
-      <div id="calendar-block">
-        <div id="cal-header">
-          <span id="cal-month">January</span>
-          <span id="cal-year">2024</span>
-        </div>
-        <div id="cal-grid"></div>
-      </div>
-    </div>
-
+    <div id="time">3:00</div>
   </div>
 </div>
 
-<div id="setup-screen">
-  <h1>Smart Display</h1>
-  <p>Open <code>index.html</code> and edit the <code>CONFIG</code> section at the top.<br>
-  Add your photo filenames to <code>photos: [ ]</code>.<br>
-  Optionally paste your ICS calendar URL into <code>calendarICSUrl</code>.</p>
-  <p style="color:rgba(255,255,255,0.28);font-size:12px;">Clock and calendar are already working — this screen hides once photos are added.</p>
-</div>
-
+<div id="swipe-hint">← swipe to change month →</div>
 
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Helpers ──────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const KB = ['kb1','kb2','kb3','kb4','kb5','kb6'];
 const MONTHS    = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS_S    = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const rand      = n => Math.floor(Math.random() * n);
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|heic)$/i;
+const CORS_PROXIES = [
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
 
-function isSameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() &&
-         a.getMonth()    === b.getMonth()    &&
-         a.getDate()     === b.getDate();
-}
-
-function dateOnly(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Clock
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Clock ────────────────────────────────────────────────────────────────
 function formatTime(d) {
   let h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
   if (CONFIG.use12Hour) h = h % 12 || 12;
   const mm = String(m).padStart(2,'0');
-  const ss = String(s).padStart(2,'0');
-  return CONFIG.showSeconds ? `${h}:${mm}:${ss}` : `${h}:${mm}`;
+  return CONFIG.showSeconds ? `${h}:${mm}:${String(s).padStart(2,'0')}` : `${h}:${mm}`;
 }
 
 function updateClock() {
   const now = new Date();
-  $('time').textContent     = formatTime(now);
-  $('date-line').textContent = `${DAYS_LONG[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+  $('time').textContent    = formatTime(now);
+  $('day-name').textContent  = DAYS_LONG[now.getDay()].toUpperCase();
+  $('date-full').textContent = `${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mini calendar
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Calendar rendering ───────────────────────────────────────────────────
+let viewOffset = 0;   // months from current month; 0 = today's month
 
-let eventDaysSet = new Set(); // filled by ICS parser, "YYYY-M-D" strings
+function shiftMonth(delta) {
+  viewOffset += delta;
+  renderCalendar();
+  hideSwipeHint();
+}
 
-function buildCalendar() {
-  const now   = new Date();
-  const year  = now.getFullYear();
-  const month = now.getMonth();
-  const today = now.getDate();
+function eventTimeLabel(ev) {
+  if (ev.start.allDay) return null;
+  const d = ev.start.date;
+  let h = d.getHours(), m = d.getMinutes();
+  const suffix = CONFIG.use12Hour ? (h < 12 ? 'a' : 'p') : '';
+  if (CONFIG.use12Hour) h = h % 12 || 12;
+  return m === 0 ? `${h}${suffix}` : `${h}:${String(m).padStart(2,'0')}${suffix}`;
+}
 
-  $('cal-month').textContent = MONTHS[month].toUpperCase();
-  $('cal-year').textContent  = year;
+function renderCalendar() {
+  const now    = new Date();
+  const base   = new Date(now.getFullYear(), now.getMonth() + viewOffset, 1);
+  const year   = base.getFullYear();
+  const month  = base.getMonth();
+  const today  = now.getDate();
+  const isThisMonth = viewOffset === 0;
+
+  $('month-title').textContent = `${MONTHS[month]} ${year}`;
 
   const firstDow    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const grid        = $('cal-grid');
-  grid.innerHTML    = '';
+  const prevDays    = new Date(year, month, 0).getDate();
 
-  DAYS_S.forEach(d => {
-    const el = document.createElement('div');
-    el.className = 'cal-dow'; el.textContent = d; grid.appendChild(el);
-  });
+  // How many total cells (always 6 rows = 42 cells so grid is stable)
+  const TOTAL_CELLS = 42;
 
-  for (let i = 0; i < firstDow; i++) {
-    const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
-  }
+  // Build event lookup: key "YYYY-M-D" → sorted array of events
+  const eventMap = buildEventMap(year, month);
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const el  = document.createElement('div');
-    const dow = (firstDow + day - 1) % 7;
-    const key = `${year}-${month}-${day}`;
-    let cls = 'cal-day';
-    if (day === today)          cls += ' today';
-    if (dow === 0 || dow === 6) cls += ' weekend';
-    if (eventDaysSet.has(key))  cls += ' has-event';
-    el.className = cls; el.textContent = day; grid.appendChild(el);
+  const grid = $('cal-grid');
+  grid.innerHTML = '';
+
+  // How many rows we actually need (5 or 6)
+  const weeksNeeded = Math.ceil((firstDow + daysInMonth) / 7);
+  grid.style.gridTemplateRows = `repeat(${weeksNeeded}, 1fr)`;
+
+  const totalCells = weeksNeeded * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+
+    let dayNum, cellMonth = month, cellYear = year, isOther = false;
+
+    if (i < firstDow) {
+      // Previous month overflow
+      dayNum = prevDays - firstDow + i + 1;
+      cellMonth = month - 1 < 0 ? 11 : month - 1;
+      cellYear  = month - 1 < 0 ? year - 1 : year;
+      isOther   = true;
+      cell.classList.add('other-month');
+    } else if (i - firstDow < daysInMonth) {
+      dayNum = i - firstDow + 1;
+      if (isThisMonth && dayNum === today) cell.classList.add('today');
+      const dow = i % 7;
+      if (dow === 0 || dow === 6) cell.classList.add('weekend');
+    } else {
+      // Next month overflow
+      dayNum = i - firstDow - daysInMonth + 1;
+      cellMonth = month + 1 > 11 ? 0 : month + 1;
+      cellYear  = month + 1 > 11 ? year + 1 : year;
+      isOther   = true;
+      cell.classList.add('other-month');
+    }
+
+    // Day number
+    const numWrap = document.createElement('div'); numWrap.className = 'day-num-wrap';
+    const numEl   = document.createElement('div'); numEl.className = 'day-num';
+    numEl.textContent = dayNum;
+    numWrap.appendChild(numEl);
+    cell.appendChild(numWrap);
+
+    // Events for this cell
+    if (!isOther) {
+      const key    = `${year}-${month}-${dayNum}`;
+      const events = eventMap[key] || [];
+
+      // How many pills fit: estimate based on cell — show max 3, then "+N more"
+      const MAX_PILLS = 3;
+      const visible   = events.slice(0, MAX_PILLS);
+      const overflow  = events.length - visible.length;
+
+      visible.forEach(ev => {
+        const pill = document.createElement('div');
+        const t    = eventTimeLabel(ev);
+        if (t) {
+          pill.className = 'event-pill timed';
+          pill.setAttribute('data-time', t);
+        } else {
+          pill.className = 'event-pill';
+        }
+        pill.textContent = ev.title || '(No title)';
+        cell.appendChild(pill);
+      });
+
+      if (overflow > 0) {
+        const more = document.createElement('div');
+        more.className = 'event-more';
+        more.textContent = `+${overflow} more`;
+        cell.appendChild(more);
+      }
+    }
+
+    grid.appendChild(cell);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ICS parser
-// ─────────────────────────────────────────────────────────────────────────────
+// Build a map of "year-month-day" → [events] for the given month
+function buildEventMap(year, month) {
+  const map = {};
+  const monthStart = new Date(year, month, 1);
+  const monthEnd   = new Date(year, month + 1, 0, 23, 59, 59);
 
-function parseICSDate(val, propLine) {
-  // val examples: 20260629, 20260629T140000, 20260629T140000Z
-  // propLine: DTSTART;TZID=America/New_York  (we parse the raw value only)
-  val = val.trim();
-  const allDay = val.length === 8;
-  if (allDay) {
-    const y = +val.slice(0,4), mo = +val.slice(4,6)-1, d = +val.slice(6,8);
-    return { date: new Date(y, mo, d), allDay: true };
+  for (const ev of allEvents) {
+    if (ev.status === 'CANCELLED') continue;
+    const instances = ev.rrule
+      ? expandRecurring(ev, monthStart, monthEnd)
+      : [ev];
+
+    for (const inst of instances) {
+      const d = inst.start.date;
+      if (d < monthStart || d > monthEnd) continue;
+      const key = `${year}-${month}-${d.getDate()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(inst);
+    }
   }
-  const y  = +val.slice(0,4), mo = +val.slice(4,6)-1, d  = +val.slice(6,8);
-  const hh = +val.slice(9,11), mm = +val.slice(11,13), ss = +val.slice(13,15);
-  const utc = val.endsWith('Z');
-  const date = utc
-    ? new Date(Date.UTC(y, mo, d, hh, mm, ss))
-    : new Date(y, mo, d, hh, mm, ss);
+
+  // Sort events within each day by start time
+  for (const key of Object.keys(map)) {
+    map[key].sort((a,b) => {
+      if (a.start.allDay && !b.start.allDay) return -1;
+      if (!a.start.allDay && b.start.allDay) return 1;
+      return a.start.date - b.start.date;
+    });
+  }
+
+  return map;
+}
+
+// ─── ICS parser ───────────────────────────────────────────────────────────
+let allEvents = [];
+
+function parseICSDate(val) {
+  val = val.trim();
+  if (val.length === 8) {
+    return { date: new Date(+val.slice(0,4), +val.slice(4,6)-1, +val.slice(6,8)), allDay: true };
+  }
+  const y=+val.slice(0,4), mo=+val.slice(4,6)-1, d=+val.slice(6,8);
+  const h=+val.slice(9,11), m=+val.slice(11,13), s=+val.slice(13,15);
+  const date = val.endsWith('Z')
+    ? new Date(Date.UTC(y,mo,d,h,m,s))
+    : new Date(y,mo,d,h,m,s);
   return { date, allDay: false };
 }
 
 function parseICS(text) {
-  // Unfold continuation lines (RFC 5545 §3.1)
-  text = text.replace(/\r\n[ \t]/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
+  text = text.replace(/\r\n[ \t]/g,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   const events = [];
   let ev = null;
-
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
+  for (const line of text.split('\n')) {
     if (line === 'BEGIN:VEVENT') { ev = {}; continue; }
-    if (line === 'END:VEVENT')   { if (ev && ev.start) events.push(ev); ev = null; continue; }
+    if (line === 'END:VEVENT')   { if (ev?.start) events.push(ev); ev = null; continue; }
     if (!ev) continue;
-
-    const colon = line.indexOf(':');
-    if (colon === -1) continue;
-    const propFull = line.slice(0, colon);
-    const propKey  = propFull.split(';')[0].toUpperCase();
-    const val      = line.slice(colon + 1);
-
-    switch (propKey) {
-      case 'SUMMARY':     ev.title  = val.replace(/\\,/g,',').replace(/\\n/g,' ').trim(); break;
-      case 'DESCRIPTION': ev.desc   = val.replace(/\\n/g,'\n').replace(/\\,/g,',').trim(); break;
-      case 'LOCATION':    ev.loc    = val.replace(/\\,/g,',').trim(); break;
-      case 'DTSTART':     ev.start  = parseICSDate(val, propFull); break;
-      case 'DTEND':       ev.end    = parseICSDate(val, propFull); break;
-      case 'STATUS':      ev.status = val.trim(); break;
-      case 'RRULE':       ev.rrule  = val.trim(); break;
-    }
+    const ci = line.indexOf(':');
+    if (ci === -1) continue;
+    const key = line.slice(0,ci).split(';')[0].toUpperCase();
+    const val = line.slice(ci+1);
+    if (key==='SUMMARY')  ev.title  = val.replace(/\\,/g,',').replace(/\\n/g,' ').trim();
+    if (key==='DTSTART')  ev.start  = parseICSDate(val);
+    if (key==='DTEND')    ev.end    = parseICSDate(val);
+    if (key==='STATUS')   ev.status = val.trim();
+    if (key==='RRULE')    ev.rrule  = val.trim();
   }
-
   return events;
 }
 
-// Very basic RRULE expansion — handles FREQ=DAILY/WEEKLY/MONTHLY, COUNT, UNTIL
-// Enough for most common recurring meetings; complex rules are skipped.
-function expandRecurring(ev, windowStart, windowEnd) {
-  if (!ev.rrule) return [ev];
+function expandRecurring(ev, winStart, winEnd) {
   const parts = {};
-  ev.rrule.split(';').forEach(p => { const [k,v] = p.split('='); parts[k] = v; });
+  ev.rrule.split(';').forEach(p => { const [k,v] = p.split('='); parts[k]=v; });
   const freq = parts['FREQ'];
-  if (!freq) return [ev];
+  if (!freq) return [];
 
-  const count = parts['COUNT'] ? +parts['COUNT'] : 500;
-  let until   = parts['UNTIL'] ? parseICSDate(parts['UNTIL'], '').date : null;
-  const byday = (parts['BYDAY'] || '').split(',').filter(Boolean);
+  const count  = parts['COUNT'] ? +parts['COUNT'] : 500;
+  const until  = parts['UNTIL'] ? parseICSDate(parts['UNTIL']).date : null;
+  const byday  = (parts['BYDAY']||'').split(',').filter(Boolean);
+  const DOW    = ['SU','MO','TU','WE','TH','FR','SA'];
+  const dur    = ev.end ? ev.end.date - ev.start.date : 0;
+  const MS_DAY = 86400000;
 
-  const MS_DAY  = 86400000;
-  const MS_WEEK = 7 * MS_DAY;
   const instances = [];
   let cursor = new Date(ev.start.date);
-  const duration = ev.end ? (ev.end.date - ev.start.date) : 0;
   let n = 0;
 
   while (n < count) {
     if (until && cursor > until) break;
-    if (cursor > windowEnd)      break;
+    if (cursor > winEnd) break;
 
-    const inWindow = cursor >= windowStart || (ev.end && new Date(cursor.getTime() + duration) > windowStart);
-
-    if (inWindow) {
-      // Filter by BYDAY if specified
-      const dow = ['SU','MO','TU','WE','TH','FR','SA'][cursor.getDay()];
+    if (cursor >= winStart || (dur && new Date(cursor.getTime()+dur) > winStart)) {
+      const dow = DOW[cursor.getDay()];
       if (!byday.length || byday.some(b => b.includes(dow))) {
         instances.push({
           ...ev,
           start: { date: new Date(cursor), allDay: ev.start.allDay },
-          end:   ev.end ? { date: new Date(cursor.getTime() + duration), allDay: ev.end.allDay } : undefined,
+          end:   ev.end ? { date: new Date(cursor.getTime()+dur), allDay: ev.end.allDay } : undefined,
         });
       }
     }
 
-    // Advance cursor
-    if (freq === 'DAILY')        cursor = new Date(cursor.getTime() + MS_DAY);
-    else if (freq === 'WEEKLY')  cursor = new Date(cursor.getTime() + MS_WEEK);
-    else if (freq === 'MONTHLY') cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate());
-    else if (freq === 'YEARLY')  cursor = new Date(cursor.getFullYear() + 1, cursor.getMonth(), cursor.getDate());
+    if      (freq==='DAILY')   cursor = new Date(cursor.getTime()+MS_DAY);
+    else if (freq==='WEEKLY')  cursor = new Date(cursor.getTime()+7*MS_DAY);
+    else if (freq==='MONTHLY') cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, cursor.getDate());
+    else if (freq==='YEARLY')  cursor = new Date(cursor.getFullYear()+1, cursor.getMonth(), cursor.getDate());
     else break;
-
     n++;
   }
-
   return instances;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Agenda rendering
-// ─────────────────────────────────────────────────────────────────────────────
+async function fetchCalendars() {
+  const urls = CONFIG.calendarURLs.filter(Boolean);
+  if (!urls.length) return;
 
-function fmtEventTime(dt, allDay) {
-  if (allDay) return 'All day';
-  let h = dt.getHours(), m = dt.getMinutes();
-  const suffix = CONFIG.use12Hour ? (h < 12 ? 'am' : 'pm') : '';
-  if (CONFIG.use12Hour) h = h % 12 || 12;
-  return `${h}:${String(m).padStart(2,'0')}${suffix}`;
-}
-
-let allParsedEvents = [];
-
-function renderAgenda() {
-  const now   = new Date();
-  const today = dateOnly(now);
-
-  // Build window: today + agendaDays
-  const windowEnd = new Date(today.getTime() + CONFIG.agendaDays * 86400000);
-
-  // Expand recurring events within window
-  let expanded = [];
-  for (const ev of allParsedEvents) {
-    if (ev.status === 'CANCELLED') continue;
-    if (ev.rrule) {
-      expanded.push(...expandRecurring(ev, today, windowEnd));
-    } else {
-      expanded.push(ev);
+  const fetched = [];
+  for (const url of urls) {
+    for (const proxy of CORS_PROXIES) {
+      try {
+        const res  = await fetch(proxy(url), { cache: 'no-store' });
+        if (!res.ok) continue;
+        const text = await res.text();
+        if (!text.includes('BEGIN:VCALENDAR')) continue;
+        fetched.push(...parseICS(text));
+        break;
+      } catch (_) {}
     }
   }
 
-  // Filter to window and sort
-  expanded = expanded
-    .filter(ev => {
-      const s = ev.start.date;
-      const e = ev.end ? ev.end.date : s;
-      return e >= today && s < windowEnd;
-    })
-    .sort((a, b) => a.start.date - b.start.date);
+  allEvents = fetched;
+  renderCalendar();
+}
 
-  // Dot markers on calendar
-  eventDaysSet = new Set();
-  expanded.forEach(ev => {
-    const d = ev.start.date;
-    eventDaysSet.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
-  });
-  buildCalendar();
+// ─── Photos ───────────────────────────────────────────────────────────────
+let photos = [...CONFIG.photos];
+let photoIdx = 0;
 
-  // Agenda items
-  const todayEvents    = expanded.filter(ev => isSameDay(ev.start.date, today) || (ev.start.allDay && ev.start.date <= today && (!ev.end || ev.end.date > today)));
-  const tomorrowEvents = expanded.filter(ev => {
-    const tom = new Date(today.getTime() + 86400000);
-    return isSameDay(ev.start.date, tom);
-  });
-
-  const displayEvents = todayEvents.length > 0 ? todayEvents : tomorrowEvents;
-  const label = todayEvents.length > 0
-    ? 'Today'
-    : (() => { const t = new Date(today.getTime() + 86400000); return DAYS_LONG[t.getDay()]; })();
-
-  $('agenda-label').textContent = label;
-
-  const list = $('agenda-list');
-  list.innerHTML = '';
-
-  if (displayEvents.length === 0) {
-    const el = document.createElement('div');
-    el.className = 'agenda-empty'; el.textContent = 'No events'; list.appendChild(el);
-  } else {
-    const slice = displayEvents.slice(0, CONFIG.agendaMaxItems);
-    slice.forEach(ev => {
-      const row = document.createElement('div'); row.className = 'agenda-item';
-      const dot = document.createElement('div'); dot.className = 'agenda-dot';
-      const time = document.createElement('div'); time.className = 'agenda-time';
-      time.textContent = fmtEventTime(ev.start.date, ev.start.allDay);
-      const title = document.createElement('div'); title.className = 'agenda-title';
-      title.textContent = ev.title || '(No title)';
-      row.appendChild(dot); row.appendChild(time); row.appendChild(title);
-      list.appendChild(row);
-    });
-    if (displayEvents.length > CONFIG.agendaMaxItems) {
-      const more = document.createElement('div');
-      more.className = 'agenda-empty';
-      more.textContent = `+${displayEvents.length - CONFIG.agendaMaxItems} more`;
-      list.appendChild(more);
-    }
+function setPhoto(url) {
+  const bg = $('photo-bg');
+  bg.style.backgroundImage = `url(${JSON.stringify(url)})`;
+  if (!bg.classList.contains('animate')) {
+    setTimeout(() => bg.classList.add('animate'), 100);
   }
-
-  $('agenda-block').style.display = 'block';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ICS fetch (with CORS proxy fallback)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const CORS_PROXIES = [
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-];
-
-async function fetchICS() {
-  const url = (CONFIG.calendarICSUrl || '').trim();
-  if (!url) return;
-
-  for (const proxy of CORS_PROXIES) {
-    try {
-      const res = await fetch(proxy(url), { cache: 'no-store' });
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (!text.includes('BEGIN:VCALENDAR')) continue;
-      allParsedEvents = parseICS(text);
-      renderAgenda();
-      return;
-    } catch (_) {}
-  }
-  // If both proxies fail, still show the agenda panel with whatever we have
-  renderAgenda();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Slideshow
-// ─────────────────────────────────────────────────────────────────────────────
-
-let photos = CONFIG.photos.filter(Boolean);
-let layerA = $('photo-a');
-let layerB = $('photo-b');
-let activeL = layerA, inactiveL = layerB;
-let photoIdx = 0, transitioning = false;
-
-// Fisher-Yates shuffle so photos cycle in random order each pass
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = rand(i + 1);
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function applyKB(el) {
-  KB.forEach(c => el.classList.remove(c));
-  el.style.setProperty('--kb-dur', CONFIG.kenburnsDuration + 's');
-  void el.offsetWidth;
-  el.classList.add(KB[rand(KB.length)]);
-}
-
-function setPhoto(el, url) { el.style.backgroundImage = `url(${JSON.stringify(url)})`; }
-
-function showNext() {
-  if (transitioning || photos.length === 0) return;
-  transitioning = true;
+function nextPhoto() {
+  if (!photos.length) return;
   photoIdx = (photoIdx + 1) % photos.length;
-  // Reshuffle when we wrap around so the order varies each cycle
-  if (photoIdx === 0) shuffle(photos);
-  setPhoto(inactiveL, photos[photoIdx]);
-  applyKB(inactiveL);
-  setTimeout(() => {
-    inactiveL.style.opacity = '1';
-    activeL.style.opacity   = '0';
-    setTimeout(() => { [activeL, inactiveL] = [inactiveL, activeL]; transitioning = false; }, 2600);
-  }, 200);
+  setPhoto(photos[photoIdx]);
 }
 
-function startSlideshow() {
-  if (photos.length === 0) { $('setup-screen').style.display = 'flex'; return; }
-  shuffle(photos);
-  setPhoto(layerA, photos[0]); applyKB(layerA);
-  layerA.style.opacity = '1'; layerB.style.opacity = '0';
-  activeL = layerA; inactiveL = layerB;
-  if (photos.length > 1) setPhoto(layerB, photos[1]);
-  setInterval(showNext, CONFIG.photoInterval * 1000);
-}
-
-const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|avif|heic)$/i;
-
-async function fetchGitHubPhotos() {
+async function initPhotos() {
+  // Fetch file list from GitHub
   const repo   = (CONFIG.githubRepo   || '').trim();
   const folder = (CONFIG.photosFolder || 'photos').trim();
-  if (!repo) return;
+  if (repo) {
+    try {
+      const res   = await fetch(`https://api.github.com/repos/${repo}/contents/${folder}`, {
+        headers: { Accept: 'application/vnd.github.v3+json' },
+      });
+      if (res.ok) {
+        const files = await res.json();
+        if (Array.isArray(files)) {
+          const urls = files.filter(f => f.type==='file' && IMAGE_EXT.test(f.name)).map(f => f.download_url);
+          photos = [...urls, ...CONFIG.photos.filter(Boolean)];
+        }
+      }
+    } catch (_) {}
+  }
 
-  try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${folder}`, {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-    });
-    if (!res.ok) return;
-    const files = await res.json();
-    if (!Array.isArray(files)) return;
+  if (!photos.length) return;
 
-    const urls = files
-      .filter(f => f.type === 'file' && IMAGE_EXTS.test(f.name))
-      .map(f => f.download_url);
+  // Shuffle
+  for (let i = photos.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [photos[i],photos[j]] = [photos[j],photos[i]];
+  }
 
-    if (urls.length > 0) photos = [...urls, ...photos]; // GitHub photos first, manual extras appended
-  } catch (_) {}
+  setPhoto(photos[0]);
+  if (photos.length > 1) setInterval(nextPhoto, CONFIG.photoInterval * 1000);
 }
 
-async function initSlideshow() {
-  await fetchGitHubPhotos();
-  startSlideshow();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Night dim
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Night dim ────────────────────────────────────────────────────────────
 function updateNightDim() {
   if (!CONFIG.nightDim) return;
   const h = new Date().getHours();
-  const dark = h >= CONFIG.nightStart || h < CONFIG.nightEnd;
-  $('night-veil').classList.toggle('dimmed', dark);
+  $('night-veil').classList.toggle('dimmed', h >= CONFIG.nightStart || h < CONFIG.nightEnd);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Midnight refresh
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Swipe detection ──────────────────────────────────────────────────────
+let touchStartX = null, touchStartY = null;
 
-function scheduleMidnightRefresh() {
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  if (touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    shiftMonth(dx < 0 ? 1 : -1);
+  }
+  touchStartX = touchStartY = null;
+}, { passive: true });
+
+// ─── Swipe hint ───────────────────────────────────────────────────────────
+let swipeHintHidden = false;
+function hideSwipeHint() {
+  if (swipeHintHidden) return;
+  swipeHintHidden = true;
+  $('swipe-hint').classList.add('hidden');
+}
+setTimeout(hideSwipeHint, 6000); // auto-hide after 6 seconds
+
+// ─── Midnight auto-advance ────────────────────────────────────────────────
+function scheduleMidnight() {
   const now  = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  setTimeout(() => { buildCalendar(); renderAgenda(); scheduleMidnightRefresh(); }, next - now);
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+  setTimeout(() => {
+    // If user is viewing current month, re-render so "today" highlight moves
+    if (viewOffset === 0) renderCalendar();
+    scheduleMidnight();
+  }, next - now);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Wake lock
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Wake lock ────────────────────────────────────────────────────────────
 async function requestWakeLock() {
-  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (_) {}
+  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(_) {}
 }
 requestWakeLock();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWakeLock(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
+});
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Boot
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Boot ─────────────────────────────────────────────────────────────────
 updateClock();
 setInterval(updateClock, 1000);
 
-buildCalendar();
-scheduleMidnightRefresh();
+renderCalendar();
+scheduleMidnight();
 
 updateNightDim();
 setInterval(updateNightDim, 60_000);
 
-initSlideshow(); // async: fetches GitHub photos, then starts
+initPhotos();
 
-// Calendar: fetch now and on interval
-if (CONFIG.calendarICSUrl) {
-  fetchICS();
-  setInterval(fetchICS, CONFIG.calendarRefresh * 60_000);
+if (CONFIG.calendarURLs.filter(Boolean).length) {
+  fetchCalendars();
+  setInterval(fetchCalendars, CONFIG.calendarRefresh * 60_000);
 }
-
-document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 </script>
 </body>
 </html>
