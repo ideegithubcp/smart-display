@@ -275,6 +275,33 @@
       letter-spacing: 0.08em;
       pointer-events: none;
     }
+
+    /* ── Compact layout for small screens (iPad mini, phones) ── */
+    @media (max-height: 900px) {
+      :root {
+        --header-h: 52px;
+        --dow-h:    24px;
+        --footer-h: 50px;
+      }
+      #cal-grid { padding: 4px 6px; gap: 4px; }
+      .day { padding: 4px 4px 3px; gap: 2px; border-radius: 8px; }
+      .day-n { width: 20px; height: 20px; font-size: 11px; }
+      .ev { font-size: 9.5px; padding: 1px 3px; }
+      #month-label { font-size: 17px; }
+      #nav-prev, #nav-next { font-size: 20px; }
+      #clock { font-size: 17px; }
+      #date-str { font-size: 11px; }
+    }
+
+    @media (max-height: 700px) {
+      :root {
+        --header-h: 44px;
+        --dow-h:    20px;
+        --footer-h: 42px;
+      }
+      #cal-grid { padding: 2px 4px; gap: 3px; }
+      .day { padding: 3px 3px 2px; border-radius: 6px; }
+    }
   </style>
 </head>
 <body>
