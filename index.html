@@ -222,6 +222,59 @@
       color: var(--text-faint);
       letter-spacing: 0.04em;
     }
+
+    /* ── Screensaver overlay ── */
+    #screensaver {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 100;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1.5s ease-in-out;
+    }
+    #screensaver.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Two photo layers for crossfade */
+    #ss-a, #ss-b {
+      position: absolute;
+      top: -5%; left: -5%; right: -5%; bottom: -5%;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: opacity 2s ease-in-out;
+    }
+    #ss-a { opacity: 1; }
+    #ss-b { opacity: 0; }
+
+    @keyframes kb-ss {
+      from { transform: scale(1.08) translate(1%, 1%); }
+      to   { transform: scale(1)    translate(-1%, -1%); }
+    }
+    .kb-play { animation: kb-ss 35s ease-in-out infinite alternate; }
+
+    /* Clock overlay on screensaver */
+    #ss-info {
+      position: absolute;
+      bottom: 40px; right: 44px;
+      text-align: right;
+      pointer-events: none;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.7);
+    }
+    #ss-time { font-size: 64px; font-weight: 200; letter-spacing: -1px; color: #fff; line-height: 1; }
+    #ss-date { font-size: 18px; font-weight: 300; color: rgba(255,255,255,0.6); margin-top: 4px; }
+
+    #ss-hint {
+      position: absolute;
+      bottom: 40px; left: 44px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.08em;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -249,6 +302,16 @@ const CONFIG = {
 
   refreshMinutes: 15,   // how often to re-fetch the calendar
   use12Hour: true,      // false = 24-hour clock
+
+  // ── Screensaver / photo slideshow ────────────────────────────────────────
+  // Photos are loaded automatically from the "photos/" folder in your GitHub repo.
+  // Just upload images there — no need to list them here.
+  githubRepo:     "ideegithubcp/smart-display",
+  photosFolder:   "photos",
+  photos:         [],   // optional extra/fallback photo URLs
+
+  idleMinutes:    10,   // minutes of no touch before slideshow starts
+  photoSeconds:   20,   // seconds each photo is shown
 };
 </script>
 <!-- ══════════════════════════════════════════════════════ -->
@@ -270,6 +333,17 @@ const CONFIG = {
 </div>
 
 <div id="cal-grid"></div>
+
+<!-- Screensaver overlay -->
+<div id="screensaver">
+  <div id="ss-a"></div>
+  <div id="ss-b"></div>
+  <div id="ss-info">
+    <div id="ss-time">—</div>
+    <div id="ss-date">—</div>
+  </div>
+  <div id="ss-hint">tap to return to calendar</div>
+</div>
 
 <div id="setup-banner">
   No calendar connected — open <strong>index.html</strong>, find <code>calendarURLs</code> and paste your iCloud ICS URL.
@@ -587,24 +661,167 @@ async function fetchCalendars() {
   render();
 }
 
-// ─── Swipe ────────────────────────────────────────────────────────────────
+// ─── Screensaver / photo slideshow ───────────────────────────────────────
+let ssPhotos   = [];
+let ssIdx      = 0;
+let ssActive   = false;
+let ssInterval = null;
+let ssTransitioning = false;
+
+const ssEl = () => $('screensaver');
+const ssA  = () => $('ss-a');
+const ssB  = () => $('ss-b');
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function ssSetPhoto(el, url) {
+  el.style.backgroundImage = `url(${JSON.stringify(url)})`;
+}
+
+function ssKB(el) {
+  el.classList.remove('kb-play');
+  void el.offsetWidth;
+  el.classList.add('kb-play');
+}
+
+let ssLayerA, ssLayerB;
+
+function ssNextPhoto() {
+  if (!ssPhotos.length || ssTransitioning) return;
+  ssTransitioning = true;
+
+  ssIdx = (ssIdx + 1) % ssPhotos.length;
+  if (ssIdx === 0) shuffle(ssPhotos);
+
+  ssSetPhoto(ssLayerB, ssPhotos[ssIdx]);
+  ssKB(ssLayerB);
+
+  setTimeout(() => {
+    ssLayerB.style.opacity = '1';
+    ssLayerA.style.opacity = '0';
+    setTimeout(() => {
+      [ssLayerA, ssLayerB] = [ssLayerB, ssLayerA];
+      ssTransitioning = false;
+    }, 2200);
+  }, 100);
+}
+
+function ssUpdateClock() {
+  if (!ssActive) return;
+  const now = new Date();
+  let h = now.getHours(), m = now.getMinutes();
+  const suf = CONFIG.use12Hour ? (h < 12 ? ' AM' : ' PM') : '';
+  if (CONFIG.use12Hour) h = h % 12 || 12;
+  $('ss-time').textContent = `${h}:${String(m).padStart(2,'0')}${suf}`;
+  $('ss-date').textContent = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+}
+
+function showScreensaver() {
+  if (ssActive || ssPhotos.length === 0) return;
+  ssActive = true;
+
+  ssLayerA = ssA();
+  ssLayerB = ssB();
+  ssLayerA.style.opacity = '1';
+  ssLayerB.style.opacity = '0';
+
+  shuffle(ssPhotos);
+  ssIdx = 0;
+  ssSetPhoto(ssLayerA, ssPhotos[0]);
+  ssKB(ssLayerA);
+  if (ssPhotos.length > 1) ssSetPhoto(ssLayerB, ssPhotos[1]);
+
+  ssUpdateClock();
+  ssEl().classList.add('visible');
+
+  ssInterval = setInterval(() => {
+    ssNextPhoto();
+    ssUpdateClock();
+  }, CONFIG.photoSeconds * 1000);
+}
+
+function hideScreensaver() {
+  if (!ssActive) return;
+  ssEl().classList.remove('visible');
+  ssActive = false;
+  clearInterval(ssInterval);
+  ssInterval = null;
+  resetIdle();
+}
+
+async function loadPhotos() {
+  const repo   = (CONFIG.githubRepo   || '').trim();
+  const folder = (CONFIG.photosFolder || 'photos').trim();
+  const extra  = (CONFIG.photos || []).filter(Boolean);
+  const EXT    = /\.(jpe?g|png|gif|webp|avif|heic)$/i;
+
+  let fromGitHub = [];
+  if (repo) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${repo}/contents/${folder}`,
+        { headers: { Accept: 'application/vnd.github.v3+json' } }
+      );
+      if (res.ok) {
+        const files = await res.json();
+        if (Array.isArray(files))
+          fromGitHub = files.filter(f => f.type === 'file' && EXT.test(f.name)).map(f => f.download_url);
+      }
+    } catch (_) {}
+  }
+
+  ssPhotos = [...fromGitHub, ...extra];
+}
+
+// ─── Idle timer ───────────────────────────────────────────────────────────
+let idleTimer = null;
+const IDLE_MS = CONFIG.idleMinutes * 60 * 1000;
+
+function resetIdle() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(showScreensaver, IDLE_MS);
+}
+
+// ─── Touch / interaction handling ────────────────────────────────────────
 let tx = null, ty = null;
-document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive:true});
+
+document.addEventListener('touchstart', e => {
+  if (ssActive) { e.preventDefault(); return; }
+  tx = e.touches[0].clientX;
+  ty = e.touches[0].clientY;
+  resetIdle();
+}, { passive: false });
+
 document.addEventListener('touchend', e => {
+  if (ssActive) { hideScreensaver(); return; }
+
+  resetIdle();
+
   if (tx === null) return;
   const dx = e.changedTouches[0].clientX - tx;
   const dy = e.changedTouches[0].clientY - ty;
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   tx = ty = null;
-}, {passive:true});
+}, { passive: false });
 
-// Double-tap anywhere to jump back to today
+// Also reset idle on mouse events (for Mac testing)
+document.addEventListener('mousemove', resetIdle, { passive: true });
+document.addEventListener('click',     resetIdle, { passive: true });
+
+// Double-tap to jump back to today
 let lastTap = 0;
 document.addEventListener('touchend', e => {
+  if (ssActive) return;
   const now = Date.now();
   if (now - lastTap < 300) goToday();
   lastTap = now;
-}, {passive:true});
+}, { passive: true });
 
 // ─── Wake lock ────────────────────────────────────────────────────────────
 async function wakeLock() {
@@ -622,13 +839,16 @@ function scheduleMidnight() {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 tick();
-setInterval(tick, 10000);   // update clock every 10 seconds
+setInterval(tick, 10000);
 
 render();
 scheduleMidnight();
 
 fetchCalendars();
 setInterval(fetchCalendars, CONFIG.refreshMinutes * 60000);
+
+loadPhotos();   // fetch photo list; screensaver starts automatically after idle
+resetIdle();    // start the idle countdown
 </script>
 </body>
 </html>
