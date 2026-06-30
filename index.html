@@ -440,7 +440,20 @@ function render() {
   const weeks       = Math.ceil((firstDow + daysInMonth) / 7);
 
   const grid = $('cal-grid');
-  grid.style.gridTemplateRows = `repeat(${weeks}, 1fr)`;
+
+  // Compute row height explicitly — older iOS Safari doesn't expand 1fr rows
+  // inside a position:fixed container, leaving blank space below the grid.
+  const gridGap   = 6;
+  const gridPadV  = 8;
+  const availH    = window.innerHeight
+                    - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'))
+                    - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--dow-h'))
+                    - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--footer-h'))
+                    - gridPadV * 2
+                    - gridGap  * (weeks - 1);
+  const rowH      = Math.floor(availH / weeks);
+  grid.style.gridTemplateRows = `repeat(${weeks}, ${rowH}px)`;
+
   grid.innerHTML = '';
 
   const eventMap = buildEventMap(yr, mo);
@@ -849,6 +862,9 @@ document.addEventListener('touchend', e => {
   if (now - lastTap < 300) goToday();
   lastTap = now;
 }, { passive: true });
+
+// Re-render on orientation/resize so row heights recalculate
+window.addEventListener('resize', () => render());
 
 // ─── Wake lock ────────────────────────────────────────────────────────────
 async function wakeLock() {
